@@ -7,13 +7,34 @@ U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NO_ACK);
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
-ezButton button1(2);
-ezButton button2(3);
+const int BUTTON_NUM = 4;
 
-ezButton button3(4);
+const int BUTTON_01_PIN = 2;
+const int BUTTON_02_PIN = 3;
+const int BUTTON_03_PIN = 4;
+const int BUTTON_04_PIN = 5;
+const int BUTTON_05_PIN = 6;
+const int BUTTON_06_PIN = 7;
+const int BUTTON_07_PIN = 8;
+const int BUTTON_08_PIN = 9;
+const int BUTTON_09_PIN = 10;
+const int BUTTON_10_PIN = 11;
 
-bool state1 = false;
-bool state2 = false;
+
+ezButton buttons[]= {
+	ezButton(BUTTON_01_PIN), 
+	ezButton(BUTTON_02_PIN), 
+	ezButton(BUTTON_03_PIN), 
+	ezButton(BUTTON_04_PIN), 
+	// ezButton(BUTTON_05_PIN),
+  // ezButton(BUTTON_06_PIN),
+  // ezButton(BUTTON_07_PIN),
+  // ezButton(BUTTON_08_PIN),
+  // ezButton(BUTTON_09_PIN),
+  // ezButton(BUTTON_10_PIN),
+};
+
+bool state[] = {false, false};
 bool modeSet = false;
 
 // the mode the controller will operate
@@ -23,7 +44,7 @@ int currentMode = MODE_SCENE;
 
 String displayText = "Start";
 
-void setupDisplay(void)
+void setupDisplay()
 {
   if (u8g.getMode() == U8G_MODE_R3G3B2)
   {
@@ -43,7 +64,7 @@ void setupDisplay(void)
   }
 }
 
-void draw(void)
+void draw()
 {
   int str_len = displayText.length() + 1;
   char char_array[str_len];
@@ -57,50 +78,91 @@ void draw(void)
   u8g.drawRFrame(0, 18, 128, 46, 4);
 }
 
-void setButtonsDebounceTime(unsigned long timeInMilliseconds)
+void setupButtons(unsigned long timeInMilliseconds)
 {
-  button1.setDebounceTime(timeInMilliseconds);
-  button2.setDebounceTime(timeInMilliseconds);
-  button3.setDebounceTime(timeInMilliseconds);
+  for (int i = 0; i < BUTTON_NUM; i++)
+  {
+    buttons[i] = ezButton(i + 2);
+    buttons[i].setDebounceTime(timeInMilliseconds);
+  }
 }
 
 void loopButtons()
 {
-  button1.loop();
-  button2.loop();
-  button3.loop();
+  for (int i = 0; i < BUTTON_NUM; i++)
+  {
+    buttons[i].loop();
+  }
+}
+
+void updateDisplay()
+{
+  u8g.firstPage();
+  do
+  {
+    draw();
+  } while (u8g.nextPage());
 }
 
 void setup(void)
 {
   Serial.begin(9600);
+  setupButtons(50L);
+
   setupDisplay();
+  updateDisplay();
 
   //  MIDI.begin(MIDI_CHANNEL_OMNI);  // Listen to all incoming messages
-
-  setButtonsDebounceTime(50L);
 }
 
 void processInput()
 {
-  if (button1.isPressed())
+  bool someButtonPressed = false;
+  loopButtons();
+
+  for (int i = 0; i < BUTTON_NUM; i++)
   {
-    Serial.println("The button 1 is pressed");
-    state1 = true;
+
+    if (buttons[i].isPressed())
+    {
+      someButtonPressed = true;
+
+      // Buttons 0 and 1 (pin 2 and 3 respectively are special:
+      // Preset up and down when in SCENE mode
+      // Toggle an effect block when in FX mode)
+      if (i == 0 || i == 1)
+      {
+        state[i] = true;
+      }
+      else
+      {
+        if (currentMode == MODE_SCENE)
+        {
+          displayText = "Scn " + String(i - 1);
+        }
+        else if (currentMode == MODE_FX)
+        {
+          displayText = "FX " + String(i - 1);
+        }
+      }
+    }
+
+    if (buttons[i].isReleased())
+    {
+      if (i == 0 || i == 1)
+      {
+        Serial.println("The button " + String(i + 1) + " is released");
+        state[i] = false;
+        modeSet = false;
+      }
+      else
+      {
+        Serial.println("The button " + String(i - 1) + " is released");
+      }
+    }
   }
 
-  if (button2.isPressed())
-  {
-    Serial.println("The button 2 is pressed");
-    state2 = true;
-  }
-
-  if (button3.isPressed())
-  {
-    Serial.println("The button 3 is pressed");
-  }
-
-  if (state1 && state2 && !modeSet)
+  if (state[0] && state[1] && !modeSet)
   {
     modeSet = true;
 
@@ -114,46 +176,22 @@ void processInput()
       currentMode = MODE_FX;
       displayText = "FX";
     }
-
+    someButtonPressed = true;
     // Send note 42 with velocity 127 on channel 1
     //    MIDI.sendNoteOn(42, 127, 1);
   }
 
-  if (button1.isReleased())
+  if (someButtonPressed == true)
   {
-    Serial.println("The button 1 is released");
-    state1 = false;
-    modeSet = false;
-  }
-
-  if (button2.isReleased())
-  {
-    Serial.println("The button 2 is released");
-    state2 = false;
-    modeSet = false;
-  }
-
-  if (button3.isReleased())
-  {
-    Serial.println("The button 3 is released");
+    updateDisplay();
   }
 }
 
 void loop(void)
 {
-  loopButtons();
 
   processInput();
 
   // Read incoming messages
   //  MIDI.read();
-
-  // Draw
-  u8g.firstPage();
-  do
-  {
-    draw();
-  } while (u8g.nextPage());
-
-  delay(50);
 }
