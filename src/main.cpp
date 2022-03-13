@@ -20,18 +20,17 @@ const int BUTTON_08_PIN = 9;
 const int BUTTON_09_PIN = 10;
 const int BUTTON_10_PIN = 11;
 
-
-ezButton buttons[]= {
-	ezButton(BUTTON_01_PIN), 
-	ezButton(BUTTON_02_PIN), 
-	ezButton(BUTTON_03_PIN), 
-	ezButton(BUTTON_04_PIN), 
-	// ezButton(BUTTON_05_PIN),
-  // ezButton(BUTTON_06_PIN),
-  // ezButton(BUTTON_07_PIN),
-  // ezButton(BUTTON_08_PIN),
-  // ezButton(BUTTON_09_PIN),
-  // ezButton(BUTTON_10_PIN),
+ezButton buttons[] = {
+    ezButton(BUTTON_01_PIN),
+    ezButton(BUTTON_02_PIN),
+    ezButton(BUTTON_03_PIN),
+    ezButton(BUTTON_04_PIN),
+    // ezButton(BUTTON_05_PIN),
+    // ezButton(BUTTON_06_PIN),
+    // ezButton(BUTTON_07_PIN),
+    // ezButton(BUTTON_08_PIN),
+    // ezButton(BUTTON_09_PIN),
+    // ezButton(BUTTON_10_PIN),
 };
 
 bool state[] = {false, false};
@@ -41,6 +40,9 @@ bool modeSet = false;
 const int MODE_SCENE = 0;
 const int MODE_FX = 1;
 int currentMode = MODE_SCENE;
+
+// preset / scene mode stuff
+int currentPreset = 0;
 
 String displayText = "Start";
 
@@ -106,13 +108,61 @@ void updateDisplay()
 
 void setup(void)
 {
-  Serial.begin(9600);
+  MIDI.begin(MIDI_CHANNEL_OMNI); // Listen to all incoming messages
+  // Serial.begin(9600);
   setupButtons(50L);
 
   setupDisplay();
   updateDisplay();
+}
 
-  //  MIDI.begin(MIDI_CHANNEL_OMNI);  // Listen to all incoming messages
+void changePreset(int presetDelta)
+{
+  if (presetDelta == 1)
+  {
+    if (currentPreset == 511)
+    {
+      currentPreset = 0;
+    }
+    else
+    {
+      currentPreset++;
+    }
+  }
+  else if (presetDelta == -1)
+  {
+    if (currentPreset == 0)
+    {
+      currentPreset = 511;
+    }
+    else
+    {
+      currentPreset--;
+    }
+  }
+
+  switch (currentPreset)
+  {
+  case 1:
+    MIDI.sendControlChange(0, 3, 1);
+    MIDI.sendProgramChange(6, 1);
+    break;
+
+  case 2:
+    MIDI.sendControlChange(0, 0, 1);
+    MIDI.sendProgramChange(7, 1);
+    break;
+
+  case 3:
+    MIDI.sendControlChange(0, 0, 1);
+    MIDI.sendProgramChange(8, 1);
+    break;
+
+  default:
+    MIDI.sendControlChange(0, 0, 1);
+    MIDI.sendProgramChange(0, 1);
+    break;
+  }
 }
 
 void processInput()
@@ -133,12 +183,23 @@ void processInput()
       if (i == 0 || i == 1)
       {
         state[i] = true;
+        if (i == 0)
+        {
+          MIDI.sendControlChange(125, 1, 1);
+          // MIDI.sendProgramChange(6, 1);
+        }
+        else
+        {
+          MIDI.sendControlChange(126, 1, 1);
+          // MIDI.sendProgramChange(7, 1);
+        }
       }
       else
       {
         if (currentMode == MODE_SCENE)
         {
           displayText = "Scn " + String(i - 1);
+          MIDI.sendControlChange(127, i - 2, 1);
         }
         else if (currentMode == MODE_FX)
         {
@@ -151,13 +212,13 @@ void processInput()
     {
       if (i == 0 || i == 1)
       {
-        Serial.println("The button " + String(i + 1) + " is released");
+        // Serial.println("The button " + String(i + 1) + " is released");
         state[i] = false;
         modeSet = false;
       }
       else
       {
-        Serial.println("The button " + String(i - 1) + " is released");
+        // Serial.println("The button " + String(i - 1) + " is released");
       }
     }
   }
@@ -189,9 +250,8 @@ void processInput()
 
 void loop(void)
 {
-
   processInput();
 
   // Read incoming messages
-  //  MIDI.read();
+  MIDI.read();
 }
