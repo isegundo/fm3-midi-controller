@@ -1,3 +1,17 @@
+// IMPORTANT!!! USE THIS SKETCH AT YOUR OWN RISK! 
+// I WILL HOLD NO RESPONSIBLITY FOR ANY DAMAGE CAUSED TO YOUR DEVICES!!!
+// YOU ARE ENTIRELY RESPONSIBLE FOR ANY DAMAGE CAUSED TO YOUR DEVICES!!!
+// TEST IT EXTENSIVELY BEFORE USING!!!
+
+
+// In this sketch, the buttons connected to pin 2 and 3 will be preset down and up respectively.
+// In Fractal FM3, set up the MIDI messages like this to use it right out-of-the-box:
+// 125 Preset down
+// 126 Preset up
+// 127 Change Scene, where the value is the desired scene starting from zero (i.e. Value 0 means scene 1)
+
+// This setup is for a board with 10 buttons. First two for preset change, others for scene change.
+
 #include "Arduino.h"
 #include "U8glib.h"
 #include "ezButton.h"
@@ -7,7 +21,7 @@ U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NO_ACK);
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
-const int BUTTON_NUM = 4;
+const int BUTTON_NUM = 10;
 
 const int BUTTON_01_PIN = 2;
 const int BUTTON_02_PIN = 3;
@@ -25,12 +39,12 @@ ezButton buttons[] = {
     ezButton(BUTTON_02_PIN),
     ezButton(BUTTON_03_PIN),
     ezButton(BUTTON_04_PIN),
-    // ezButton(BUTTON_05_PIN),
-    // ezButton(BUTTON_06_PIN),
-    // ezButton(BUTTON_07_PIN),
-    // ezButton(BUTTON_08_PIN),
-    // ezButton(BUTTON_09_PIN),
-    // ezButton(BUTTON_10_PIN),
+    ezButton(BUTTON_05_PIN),
+    ezButton(BUTTON_06_PIN),
+    ezButton(BUTTON_07_PIN),
+    ezButton(BUTTON_08_PIN),
+    ezButton(BUTTON_09_PIN),
+    ezButton(BUTTON_10_PIN),
 };
 
 bool state[] = {false, false};
@@ -116,55 +130,6 @@ void setup(void)
   updateDisplay();
 }
 
-void changePreset(int presetDelta)
-{
-  if (presetDelta == 1)
-  {
-    if (currentPreset == 511)
-    {
-      currentPreset = 0;
-    }
-    else
-    {
-      currentPreset++;
-    }
-  }
-  else if (presetDelta == -1)
-  {
-    if (currentPreset == 0)
-    {
-      currentPreset = 511;
-    }
-    else
-    {
-      currentPreset--;
-    }
-  }
-
-  switch (currentPreset)
-  {
-  case 1:
-    MIDI.sendControlChange(0, 3, 1);
-    MIDI.sendProgramChange(6, 1);
-    break;
-
-  case 2:
-    MIDI.sendControlChange(0, 0, 1);
-    MIDI.sendProgramChange(7, 1);
-    break;
-
-  case 3:
-    MIDI.sendControlChange(0, 0, 1);
-    MIDI.sendProgramChange(8, 1);
-    break;
-
-  default:
-    MIDI.sendControlChange(0, 0, 1);
-    MIDI.sendProgramChange(0, 1);
-    break;
-  }
-}
-
 void processInput()
 {
   bool someButtonPressed = false;
@@ -177,21 +142,18 @@ void processInput()
     {
       someButtonPressed = true;
 
-      // Buttons 0 and 1 (pin 2 and 3 respectively are special:
-      // Preset up and down when in SCENE mode
-      // Toggle an effect block when in FX mode)
+      // Buttons 0 and 1 (pin 2 and 3) are preset down and up respectively
+
       if (i == 0 || i == 1)
       {
         state[i] = true;
         if (i == 0)
         {
           MIDI.sendControlChange(125, 1, 1);
-          // MIDI.sendProgramChange(6, 1);
         }
         else
         {
           MIDI.sendControlChange(126, 1, 1);
-          // MIDI.sendProgramChange(7, 1);
         }
       }
       else
@@ -204,6 +166,7 @@ void processInput()
         else if (currentMode == MODE_FX)
         {
           displayText = "FX " + String(i - 1);
+          // TODO To be implemented
         }
       }
     }
@@ -238,8 +201,6 @@ void processInput()
       displayText = "FX";
     }
     someButtonPressed = true;
-    // Send note 42 with velocity 127 on channel 1
-    //    MIDI.sendNoteOn(42, 127, 1);
   }
 
   if (someButtonPressed == true)
